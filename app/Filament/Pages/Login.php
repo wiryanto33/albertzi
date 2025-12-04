@@ -28,15 +28,18 @@ class Login extends BaseLogin
 
         $data = $this->form->getState();
 
-        // Check if user exists and was created through social login
-        $user = \App\Models\User::where('email', $data['email'])->first();
+        // Authenticate using username (stored in users.name)
+        $user = \App\Models\User::where('name', $data['username'] ?? null)->first();
         if ($user && is_null($user->password)) {
             throw ValidationException::withMessages([
-                'data.email' => 'This account was created using social login. Please login with Google.',
+                'data.username' => 'Akun ini dibuat dengan social login. Silakan login dengan Google.',
             ]);
         }
 
-        if (! Filament::auth()->attempt($this->getCredentialsFromFormData($data), $data['remember'] ?? false)) {
+        if (! Filament::auth()->attempt([
+            'name' => $data['username'] ?? null,
+            'password' => $data['password'] ?? null,
+        ], $data['remember'] ?? false)) {
             $this->throwFailureValidationException();
         }
 
@@ -60,11 +63,11 @@ class Login extends BaseLogin
     {
         parent::mount();
 
-        $this->form->fill([
-            'email' => 'admin@admin.com',
-            'password' => 'password',
-            'remember' => true,
-        ]);
+        // $this->form->fill([
+        //     'email' => 'admin@admin.com',
+        //     'password' => 'password',
+        //     'remember' => true,
+        // ]);
     }
     /**
      * @return array<int | string, string | Form>
@@ -75,12 +78,29 @@ class Login extends BaseLogin
             'form' => $this->form(
                 $this->makeForm()
                     ->schema([
-                        $this->getEmailFormComponent(),
+                        $this->getUsernameFormComponent(),
                         $this->getPasswordFormComponent(),
                         $this->getRememberFormComponent(),
                     ])
                     ->statePath('data'),
             ),
         ];
+    }
+
+    protected function getUsernameFormComponent(): Component
+    {
+        return TextInput::make('username')
+            ->label('Username')
+            ->required()
+            ->autocomplete('username')
+            ->autofocus()
+            ->extraInputAttributes(['tabindex' => 1]);
+    }
+
+    protected function throwFailureValidationException(): never
+    {
+        throw ValidationException::withMessages([
+            'data.username' => __('filament-panels::pages/auth/login.messages.failed'),
+        ]);
     }
 }

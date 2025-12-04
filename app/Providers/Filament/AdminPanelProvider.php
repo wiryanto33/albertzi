@@ -16,6 +16,7 @@ use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Enums\MaxWidth;
 use Filament\Widgets;
 use Hasnayeen\Themes\Http\Middleware\SetTheme;
 use Hasnayeen\Themes\ThemesPlugin;
@@ -52,6 +53,8 @@ class AdminPanelProvider extends PanelProvider
 
     public function panel(Panel $panel): Panel
     {
+        $settings = $this->settings;
+        
         return $panel
             ->default()
             ->id('admin')
@@ -60,18 +63,36 @@ class AdminPanelProvider extends PanelProvider
             ->when($this->settings->registration_enabled ?? true, fn($panel) => $panel->registration())
             ->when($this->settings->password_reset_enabled ?? true, fn($panel) => $panel->passwordReset())
             ->emailVerification()
+            ->brandName($settings?->site_name ?? config('app.name'))
+            ->brandLogoHeight('7rem')
+            ->brandLogo(function () use ($settings) {
+                if (! request()->routeIs('filament.admin.auth.login', 'filament.admin.auth.register')) {
+                    return null;
+                }
+
+                if (! $settings?->auth_logo_path) {
+                    return null;
+                }
+
+                return asset('storage/' . $settings->auth_logo_path);
+            })
             ->colors([
                 'primary' => Color::Amber,
             ])
+            ->maxContentWidth(MaxWidth::Full)
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                \App\Filament\Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
+                \App\Filament\Widgets\MonitoringMap::class,
+                \App\Filament\Widgets\HeavyEquipmentStats::class,
+                \App\Filament\Widgets\ProjectProgressStats::class,
+                \App\Filament\Widgets\EquipmentStatusPieChart::class,
+                \App\Filament\Widgets\ReportsTrendChart::class,
                 Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -85,6 +106,20 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->sidebarCollapsibleOnDesktop(true)
+            // Ensure navigation groups order — put 'Settings' at the end so it appears at the bottom
+            ->navigationGroups([
+                // You can list other groups here in the order you want them to appear.
+                // Use keys for stable ordering when groups are strings or NavigationGroup instances.
+                // Keep Settings last so it renders at the bottom of the sidebar.
+                'Dashboard',
+                'Books',
+                'Master Data',
+                'Operasi Lapangan',
+                'Perawatan & Kesiapan',
+                'Filament Shield',
+                'Settings',
+                'User',
+            ])
             ->authMiddleware([
                 Authenticate::class,
             ])
@@ -94,7 +129,8 @@ class AdminPanelProvider extends PanelProvider
             ->plugins(
                 $this->getPlugins()
             )
-            ->databaseNotifications();
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('10s');
     }
 
     private function getPlugins(): array
@@ -118,6 +154,9 @@ class AdminPanelProvider extends PanelProvider
                         ->image()
                         ->disk('public')
                 )
+                ->myProfileComponents([
+                    'operator_profile' => \App\Livewire\Profile\OperatorProfile::class,
+                ])
                 ->enableTwoFactorAuthentication(),
         ];
 
