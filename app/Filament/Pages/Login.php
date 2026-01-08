@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\User;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Component;
@@ -28,18 +29,21 @@ class Login extends BaseLogin
 
         $data = $this->form->getState();
 
-        // Authenticate using username (stored in users.name)
-        $user = \App\Models\User::where('name', $data['username'] ?? null)->first();
-        if ($user && is_null($user->password)) {
-            throw ValidationException::withMessages([
-                'data.username' => 'Akun ini dibuat dengan social login. Silakan login dengan Google.',
-            ]);
+        // Determine which field is used for login
+        $login = $data['login'] ?? $data['email'] ?? null;
+        $field = $this->resolveLoginField($login);
+
+        // Check if user exists and was created through social login (password is null)
+        if ($login) {
+            $user = User::where($field, $login)->first();
+            if ($user && is_null($user->password)) {
+                throw ValidationException::withMessages([
+                    'data.login' => 'This account was created using social login. Please login with Google.',
+                ]);
+            }
         }
 
-        if (! Filament::auth()->attempt([
-            'name' => $data['username'] ?? null,
-            'password' => $data['password'] ?? null,
-        ], $data['remember'] ?? false)) {
+        if (! Filament::auth()->attempt($this->getCredentialsFromFormData($data), $data['remember'] ?? false)) {
             $this->throwFailureValidationException();
         }
 
@@ -62,12 +66,6 @@ class Login extends BaseLogin
     public function mount(): void
     {
         parent::mount();
-
-        // $this->form->fill([
-        //     'email' => 'admin@admin.com',
-        //     'password' => 'password',
-        //     'remember' => true,
-        // ]);
     }
     /**
      * @return array<int | string, string | Form>
@@ -78,7 +76,7 @@ class Login extends BaseLogin
             'form' => $this->form(
                 $this->makeForm()
                     ->schema([
-                        $this->getUsernameFormComponent(),
+                        $this->getEmailFormComponent(),
                         $this->getPasswordFormComponent(),
                         $this->getRememberFormComponent(),
                     ])
@@ -87,20 +85,40 @@ class Login extends BaseLogin
         ];
     }
 
-    protected function getUsernameFormComponent(): Component
+    protected function getEmailFormComponent(): Component
     {
-        return TextInput::make('username')
-            ->label('Username')
+        return TextInput::make('login')
+            ->label('Username/NRP')
             ->required()
-            ->autocomplete('username')
             ->autofocus()
-            ->extraInputAttributes(['tabindex' => 1]);
+            ->autocomplete('username');
     }
 
-    protected function throwFailureValidationException(): never
+    protected function getCredentialsFromFormData(array $data): array
     {
-        throw ValidationException::withMessages([
-            'data.username' => __('filament-panels::pages/auth/login.messages.failed'),
-        ]);
+        $login = $data['login'] ?? $data['email'] ?? '';
+        $field = $this->resolveLoginField($login);
+
+        return [
+            $field => $login,
+            'password' => $data['password'] ?? ''
+        ];
+    }
+
+    private function resolveLoginField(?string $login): string
+    {
+        if (empty($login)) {
+            return 'email';
+        }
+
+        if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
+            return 'email';
+        }
+
+        if (preg_match('/^\d+$/', $login)) {
+            return 'nrp';
+        }
+
+        return 'name';
     }
 }

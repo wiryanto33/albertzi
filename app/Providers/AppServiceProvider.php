@@ -36,8 +36,5 @@ class AppServiceProvider extends ServiceProvider
             $event->extendSocialite('discord', \SocialiteProviders\Google\Provider::class);
         });
 
-        // Register custom Livewire components used by Breezy My Profile
-        // Ensures alias matches the key used in Breezy's myProfileComponents
-        Livewire::component('operator_profile', \App\Livewire\Profile\OperatorProfile::class);
     }
 }

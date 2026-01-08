@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Login;
+use App\Livewire\MyCustomComponent;
 use App\Models\User;
 use App\Settings\KaidoSetting;
 use Filament\Http\Middleware\Authenticate;
@@ -54,7 +55,7 @@ class AdminPanelProvider extends PanelProvider
     public function panel(Panel $panel): Panel
     {
         $settings = $this->settings;
-        
+
         return $panel
             ->default()
             ->id('admin')
@@ -145,8 +146,11 @@ class AdminPanelProvider extends PanelProvider
                     shouldRegisterNavigation: true, // Adds a main navigation item for the My Profile page (default = false)
                     navigationGroup: 'Settings', // Sets the navigation group for the My Profile page (default = null)
                     hasAvatars: true, // Enables the avatar upload form component (default = false)
-                    slug: 'my-profile'
+                    slug: 'my-profile',
                 )
+                ->myProfileComponents([
+                    'personal_info' => MyCustomComponent::class,
+                ])
                 ->avatarUploadComponent(fn($fileUpload) => $fileUpload->disableLabel())
                 // OR, replace with your own component
                 ->avatarUploadComponent(
@@ -154,9 +158,6 @@ class AdminPanelProvider extends PanelProvider
                         ->image()
                         ->disk('public')
                 )
-                ->myProfileComponents([
-                    'operator_profile' => \App\Livewire\Profile\OperatorProfile::class,
-                ])
                 ->enableTwoFactorAuthentication(),
         ];
 

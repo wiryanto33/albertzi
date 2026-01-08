@@ -29,6 +29,10 @@ class User extends Authenticatable implements FilamentUser, HasAvatar //MustVeri
     protected $fillable = [
         'name',
         'heavy_equipment_id',
+        'pangkat',
+        'korps',
+        'nrp',
+        'satuan',
         'email',
         'password',
         'avatar_url',
@@ -77,7 +81,8 @@ class User extends Authenticatable implements FilamentUser, HasAvatar //MustVeri
 
     public function getFilamentAvatarUrl(): ?string
     {
-        return $this->avatar_url ? Storage::url($this->avatar_url) : null;
+        // Ensure we generate URLs from the same disk used to upload (public)
+        return $this->avatar_url ? Storage::disk('public')->url($this->avatar_url) : null;
     }
 
     public function canAccessPanel(Panel $panel): bool

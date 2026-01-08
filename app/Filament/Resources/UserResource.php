@@ -46,10 +46,28 @@ class UserResource extends Resource
                         ->relationship('heavy_equipments', 'nama')
                         ->preload()
                         ->searchable(),
+                    Section::make('Service Information')
+                        ->schema([
+                            TextInput::make('pangkat')
+                                ->required(),
+                            TextInput::make('korps')
+                                ->required(),
+                            TextInput::make('nrp')
+                                ->required(),
+                            TextInput::make('satuan')
+                                ->required(),
+                        ])->columns(2),
                     TextInput::make('email')
                         ->required(),
-                    TextInput::make('password')
-                        ->nullable(),
+                    Section::make('Security')
+                        ->schema([
+                            TextInput::make('password')
+                                ->password()
+                                ->revealable()
+                                ->required(fn(string $operation): bool => $operation === 'create')
+                                ->dehydrateStateUsing(fn($state) => filled($state) ? $state : null)
+                                ->dehydrated(fn($state) => filled($state)),
+                        ]),
                 ]),
             ]);
     }
@@ -72,9 +90,9 @@ class UserResource extends Resource
                             ? $record->avatar_url
                             : "https://ui-avatars.com/api/?name=" . urlencode($record->name)),
                     Stack::make([
-                    TextColumn::make('heavy_equipments.nama')
-                        ->label('Alat Berat')
-                        ->searchable(),
+                        TextColumn::make('heavy_equipments.nama')
+                            ->label('Alat Berat')
+                            ->searchable(),
                         Tables\Columns\TextColumn::make('name')
                             ->searchable()
                             ->weight(FontWeight::Bold),

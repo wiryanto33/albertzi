@@ -15,6 +15,10 @@ return new class extends Migration
             $table->id();
             $table->string('name')->unique();
             $table->foreignId('heavy_equipment_id')->nullable();
+            $table->string('pangkat')->nullable();
+            $table->string('korps')->nullable();
+            $table->string('nrp')->unique()->nullable();
+            $table->string('satuan')->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
