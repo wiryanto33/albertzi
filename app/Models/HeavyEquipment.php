@@ -28,14 +28,11 @@ class HeavyEquipment extends Model
         'last_service_at' => 'date',
     ];
 
+
+
     public function assignments()
     {
         return $this->hasMany(Assignment::class);
-    }
-
-    public function inspections()
-    {
-        return $this->hasMany(EquipmentInspection::class);
     }
 
     public function jamJalan()

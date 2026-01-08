@@ -3,12 +3,11 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AssignmentResource\Pages;
-use App\Filament\Resources\AssignmentResource\RelationManagers;
-use App\Filament\Resources\AssignmentResource\RelationManagers\DailyReportsRelationManager;
-use App\Filament\Resources\AssignmentResource\RelationManagers\FuelLogsRelationManager;
 use App\Models\Assignment;
+use App\Models\WorkOrder;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -31,28 +30,56 @@ class AssignmentResource extends Resource
                 ->relationship('workOrder', 'no_wo')
                 ->preload()
                 ->searchable()
-                ->required(),
+                ->required()
+                ->live()
+                ->afterStateUpdated(function (Set $set, $state) {
+                    if($state) {
+                        $workOrder = WorkOrder::find($state);
+                        if($workOrder) {
+                            $set('tgl_mulai', $workOrder->tgl_mulai_rencana);
+                            $set('tgl_selesai', $workOrder->tgl_selesai_rencana);
+                        }
+                    } else {
+                        $set('tgl_mulai', null);
+                        $set('tgl_selesai', null);
+                    }
+                }),
             Forms\Components\Select::make('heavy_equipment_id')
-            ->label('Alat Berat')
-            ->relationship('heavyEquipment', 'nama')->preload()->searchable()->required(),
-            Forms\Components\Select::make('operator_id')
-                ->relationship('operator', 'nama', function (Builder $query) {
-                    $query->whereHas('user', function ($q) {
-                        // hanya operator yang user-nya memiliki role 'operator'
-                        $q->role('operator');
+                ->label('Alat Berat')
+                ->relationship('heavyEquipment', 'nama')
+                ->preload()
+                ->searchable()
+                ->required(),
+            Forms\Components\Select::make('user_id')
+                ->label('Operator')
+                ->relationship('user', 'name', function (Builder $query) {
+                    // Filter users with 'operator' role
+                    $query->whereHas('roles', function ($q) {
+                        $q->where('name', 'operator');
                     });
                 })
                 ->preload()
                 ->searchable()
                 ->required(),
-            Forms\Components\Grid::make(3)->schema([
-                Forms\Components\DatePicker::make('tgl_mulai'),
-                Forms\Components\DatePicker::make('tgl_selesai'),
-                Forms\Components\Select::make('status')->options([
-                    'AKTIF' => 'AKTIF',
-                    'SELESAI' => 'SELESAI',
-                    'DIBATALKAN' => 'DIBATALKAN'
-                ])->native(false)->required(),
+            Forms\Components\Grid::make(2)->schema([
+                Forms\Components\DatePicker::make('tgl_mulai')
+                    ->label('Tanggal Mulai')
+                    ->native(false),
+                Forms\Components\DatePicker::make('tgl_selesai')
+                    ->label('Tanggal Selesai')
+                    ->native(false),
+                // Forms\Components\DatePicker::make('tgl_mulai')
+                //     ->label('Tanggal Mulai'),
+                // Forms\Components\DatePicker::make('tgl_selesai')
+                //     ->label('Tanggal Selesai'),
+                Forms\Components\Select::make('status')
+                    ->options([
+                        'AKTIF' => 'AKTIF',
+                        'SELESAI' => 'SELESAI',
+                        'DIBATALKAN' => 'DIBATALKAN'
+                    ])
+                    ->native(false)
+                    ->required(),
             ])
         ]);
     }
@@ -60,17 +87,33 @@ class AssignmentResource extends Resource
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table->columns([
-            Tables\Columns\TextColumn::make('workOrder.no_wo')->label('WO')->badge()->weight('bold')->searchable(),
-            Tables\Columns\TextColumn::make('heavyEquipment.nama')->label('Alat')->searchable(),
-            Tables\Columns\TextColumn::make('operator.nama')->label('Operator')->searchable(),
-            Tables\Columns\TextColumn::make('status')->badge()->colors([
-                'success' => 'AKTIF',
-                'primary' => 'SELESAI',
-                'danger' => 'DIBATALKAN'
-            ]),
-            Tables\Columns\TextColumn::make('tgl_mulai')->date(),
-            Tables\Columns\TextColumn::make('tgl_selesai')->date(),
-            Tables\Columns\TextColumn::make('daily_reports_count')->counts('dailyReports')->label('Laporan'),
+            Tables\Columns\TextColumn::make('workOrder.no_wo')
+                ->label('WO')
+                ->badge()
+                ->weight('bold')
+                ->searchable(),
+            Tables\Columns\TextColumn::make('heavyEquipment.nama')
+                ->label('Alat')
+                ->searchable(),
+            Tables\Columns\TextColumn::make('user.name')
+                ->label('Operator')
+                ->searchable(),
+            Tables\Columns\TextColumn::make('status')
+                ->badge()
+                ->colors([
+                    'success' => 'AKTIF',
+                    'primary' => 'SELESAI',
+                    'danger' => 'DIBATALKAN'
+                ]),
+            Tables\Columns\TextColumn::make('tgl_mulai')
+                ->label('Tgl Mulai')
+                ->date(),
+            Tables\Columns\TextColumn::make('tgl_selesai')
+                ->label('Tgl Selesai')
+                ->date(),
+            Tables\Columns\TextColumn::make('daily_reports_count')
+                ->counts('dailyReports')
+                ->label('Laporan'),
         ])
             ->defaultSort('tgl_mulai', 'desc')
             ->filters([])
@@ -91,10 +134,7 @@ class AssignmentResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            DailyReportsRelationManager::class,
-            FuelLogsRelationManager::class,
-        ];
+        return [];
     }
 
     public static function getPages(): array
@@ -117,24 +157,17 @@ class AssignmentResource extends Resource
             return $query->whereRaw('1 = 0');
         }
 
-        // When the logged-in user is an operator (role or has operator record),
-        // restrict to their assignments
+        // Check if the logged-in user has the 'operator' role
         $hasOperatorRole = false;
         try {
-            $hasOperatorRole = method_exists($user, 'hasRole') ? $user->hasRole('operator') : false;
+            $hasOperatorRole = method_exists($user, 'hasRole') && $user->hasRole('operator');
         } catch (\Throwable $e) {
             $hasOperatorRole = false;
         }
 
-        $operatorId = \App\Models\Operator::where('user_id', $user->id)->value('id');
-
-        if ($hasOperatorRole || $operatorId) {
-            if ($operatorId) {
-                $query->where('operator_id', $operatorId);
-            } else {
-                // If role says operator but no linked profile, hide entries
-                $query->whereRaw('1 = 0');
-            }
+        // If user is an operator, only show their assignments
+        if ($hasOperatorRole) {
+            $query->where('user_id', $user->id);
         }
 
         return $query;

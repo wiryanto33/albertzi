@@ -25,6 +25,8 @@ class DailyReportResource extends Resource
     protected static ?string $modelLabel = 'Laporan Harian';
     protected static ?string $pluralModelLabel = 'Laporan Harian';
 
+
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -65,6 +67,19 @@ class DailyReportResource extends Resource
                             }
                             $set('project_lat', $lat);
                             $set('project_lng', $lng);
+
+                            // Auto-select assignment untuk user yang login
+                            $userId = auth()->id();
+                            if ($state && $userId) {
+                                $assignment = Assignment::where('work_order_id', $state)
+                                    ->where('user_id', $userId)
+                                    ->first();
+
+                                if ($assignment) {
+                                    $set('assignment_id', $assignment->id);
+                                    $set('operator_nama', $assignment->user->name ?? null);
+                                }
+                            }
                         }),
 
                     Forms\Components\Select::make('assignment_id')
@@ -74,15 +89,15 @@ class DailyReportResource extends Resource
                             titleAttribute: 'id',
                             modifyQueryUsing: fn(Builder $query, Get $get) => $query->where('work_order_id', $get('work_order_id')),
                         )
-                        ->getOptionLabelFromRecordUsing(fn($record) => ($record->operator->nama ?? '—') . ' - ' . ($record->heavyEquipment->nama ?? '—'))
+                        ->getOptionLabelFromRecordUsing(fn($record) => ($record->user->name ?? '—') . ' - ' . ($record->heavyEquipment->nama ?? '—'))
                         ->searchable()
                         ->preload()
                         ->afterStateHydrated(function (Set $set, $state) {
                             $name = null;
                             if ($state) {
-                                $as = Assignment::with('operator')->find($state);
-                                if ($as && $as->operator) {
-                                    $name = $as->operator->nama;
+                                $as = Assignment::with('user')->find($state);
+                                if ($as && $as->user) {
+                                    $name = $as->user->name;
                                 }
                             }
                             $set('operator_nama', $name);
@@ -90,9 +105,9 @@ class DailyReportResource extends Resource
                         ->afterStateUpdated(function (Set $set, $state) {
                             $name = null;
                             if ($state) {
-                                $as = Assignment::with('operator')->find($state);
-                                if ($as && $as->operator) {
-                                    $name = $as->operator->nama;
+                                $as = Assignment::with('user')->find($state);
+                                if ($as && $as->user) {
+                                    $name = $as->user->name;
                                 }
                             }
                             $set('operator_nama', $name);
@@ -197,7 +212,7 @@ class DailyReportResource extends Resource
         return $table->columns([
             Tables\Columns\TextColumn::make('tanggal')->date()->sortable(),
             Tables\Columns\TextColumn::make('workOrder.no_wo')->badge()->label('WO'),
-            Tables\Columns\TextColumn::make('assignment.operator.nama')->label('Operator'),
+            Tables\Columns\TextColumn::make('assignment.user.name')->label('Operator'),
             Tables\Columns\TextColumn::make('progress_persen')->label('Progres')
                 ->formatStateUsing(fn($state) => $state . '%')
                 ->color(fn($state) => $state >= 80 ? 'success' : ($state >= 50 ? 'warning' : 'danger'))
@@ -216,7 +231,8 @@ class DailyReportResource extends Resource
     public static function getRelations(): array
     {
         return [
-            // DocumentsRelationManager::class,
+            RelationManagers\FuelLogsRelationManager::class,
+            RelationManagers\IncidentReportsRelationManager::class,
         ];
     }
 
@@ -230,6 +246,7 @@ class DailyReportResource extends Resource
         ];
     }
 
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
@@ -239,21 +256,19 @@ class DailyReportResource extends Resource
             return $query->whereRaw('1 = 0');
         }
 
-        // Detect operator role/record
+        // Check if the logged-in user has the 'operator' role
         $hasOperatorRole = false;
         try {
-            $hasOperatorRole = method_exists($user, 'hasRole') ? $user->hasRole('operator') : false;
+            $hasOperatorRole = method_exists($user, 'hasRole') && $user->hasRole('operator');
         } catch (\Throwable $e) {
             $hasOperatorRole = false;
         }
 
-        $operatorId = \App\Models\Operator::where('user_id', $user->id)->value('id');
-
-        if ($hasOperatorRole || $operatorId) {
+        if ($hasOperatorRole) {
             // Show only reports for the operator's assignments OR created by the user
-            $query->where(function ($q) use ($operatorId, $user) {
-                $q->whereHas('assignment', function ($qa) use ($operatorId) {
-                    $qa->where('operator_id', $operatorId);
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('assignment', function ($qa) use ($user) {
+                    $qa->where('user_id', $user->id);
                 })
                     ->orWhere('created_by', $user->id);
             });

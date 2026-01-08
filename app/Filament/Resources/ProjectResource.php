@@ -84,15 +84,6 @@ class ProjectResource extends Resource
             ->bulkActions([Tables\Actions\DeleteBulkAction::make()]);
     }
 
-    public static function getRelations(): array
-    {
-        // Relation managers can be added here. Removed missing WorkOrdersRelationManager reference
-        // Relation managers for ProjectResource
-        return [
-            RelationManagers\WorkOrdersRelationManager::class,
-        ];
-    }
-
     public static function getPages(): array
     {
         return [

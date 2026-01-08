@@ -7,6 +7,7 @@ use App\Filament\Resources\IncidentReportResource\RelationManagers;
 use App\Models\IncidentReport;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -21,33 +22,111 @@ class IncidentReportResource extends Resource
     protected static ?string $modelLabel = 'Laporan Insiden';
     protected static ?string $pluralModelLabel = 'Laporan Insiden';
 
+    // Tambahkan ini untuk menyembunyikan dari sidebar
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Forms\Form $form): Forms\Form
     {
         return $form->schema([
-            Forms\Components\Select::make('work_order_id')->relationship('workOrder', 'no_wo')->searchable()->required()->native(false),
-            Forms\Components\Select::make('assignment_id')->relationship('assignment', 'id')->searchable()->required()->native(false),
-            Forms\Components\DateTimePicker::make('tanggal')->required(),
-            Forms\Components\TextInput::make('kategori')->required(),
-            Forms\Components\Select::make('severity')->options(['LOW' => 'LOW', 'MED' => 'MED', 'HIGH' => 'HIGH'])->native(false),
-            Forms\Components\Textarea::make('deskripsi')->rows(3),
-            Forms\Components\FileUpload::make('foto_bukti')->image()->directory('incidents'),
+            Forms\Components\Select::make('work_order_id')
+                ->label('Work Order')
+                ->relationship('workOrder', 'no_wo')
+                ->searchable()
+                ->required()
+                ->native(false)
+                ->live()
+                ->afterStateUpdated(fn(Forms\Set $set) => $set('assignment_id', null)),
+
+            Forms\Components\Select::make('assignment_id')
+                ->label('Penugasan (Operator - Alat)')
+                ->relationship(
+                    name: 'assignment',
+                    titleAttribute: 'id',
+                    modifyQueryUsing: fn(Builder $query, Get $get) => $query->where('work_order_id', $get('work_order_id')),
+                )
+                ->getOptionLabelFromRecordUsing(fn($record) => ($record->user->name ?? '—') . ' - ' . ($record->heavyEquipment->nama ?? '—'))
+                ->searchable()
+                ->required()
+                ->native(false)
+                ->preload(),
+
+            Forms\Components\DateTimePicker::make('tanggal')
+                ->label('Tanggal & Waktu')
+                ->required()
+                ->native(false),
+
+            Forms\Components\TextInput::make('kategori')
+                ->label('Kategori Insiden')
+                ->placeholder('contoh: Kecelakaan, Kerusakan, Dll')
+                ->required(),
+
+            Forms\Components\Select::make('severity')
+                ->label('Tingkat Keparahan')
+                ->options([
+                    'LOW' => 'Rendah (LOW)',
+                    'MED' => 'Sedang (MED)',
+                    'HIGH' => 'Tinggi (HIGH)'
+                ])
+                ->native(false)
+                ->required(),
+
+            Forms\Components\Textarea::make('deskripsi')
+                ->label('Deskripsi Insiden')
+                ->rows(4)
+                ->columnSpanFull(),
+
+            Forms\Components\FileUpload::make('foto_bukti')
+                ->label('Foto Bukti')
+                ->image()
+                ->directory('incidents')
+                ->maxSize(5120)
+                ->columnSpanFull(),
         ]);
     }
 
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table->columns([
-            Tables\Columns\TextColumn::make('tanggal')->dateTime()->sortable(),
-            Tables\Columns\TextColumn::make('workOrder.no_wo')->label('WO')->badge(),
-            Tables\Columns\TextColumn::make('kategori')->badge(),
-            Tables\Columns\TextColumn::make('severity')->badge()->colors([
-                'success' => 'LOW',
-                'warning' => 'MED',
-                'danger' => 'HIGH'
-            ]),
+            Tables\Columns\TextColumn::make('tanggal')
+                ->label('Tanggal')
+                ->dateTime('d M Y, H:i')
+                ->sortable(),
+
+            Tables\Columns\TextColumn::make('workOrder.no_wo')
+                ->label('WO')
+                ->badge()
+                ->searchable(),
+
+            Tables\Columns\TextColumn::make('assignment.user.name')
+                ->label('Operator')
+                ->searchable(),
+
+            Tables\Columns\TextColumn::make('kategori')
+                ->label('Kategori')
+                ->badge()
+                ->searchable(),
+
+            Tables\Columns\TextColumn::make('severity')
+                ->label('Keparahan')
+                ->badge()
+                ->colors([
+                    'success' => 'LOW',
+                    'warning' => 'MED',
+                    'danger' => 'HIGH'
+                ]),
         ])
             ->defaultSort('tanggal', 'desc')
+            ->filters([
+                Tables\Filters\SelectFilter::make('severity')
+                    ->label('Tingkat Keparahan')
+                    ->options([
+                        'LOW' => 'Rendah',
+                        'MED' => 'Sedang',
+                        'HIGH' => 'Tinggi',
+                    ]),
+            ])
             ->actions([
+                Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make()->requiresConfirmation(),
             ])
@@ -72,18 +151,18 @@ class IncidentReportResource extends Resource
             return $query->whereRaw('1 = 0');
         }
 
+        // Check if the logged-in user has the 'operator' role
         $hasOperatorRole = false;
         try {
-            $hasOperatorRole = method_exists($user, 'hasRole') ? $user->hasRole('operator') : false;
+            $hasOperatorRole = method_exists($user, 'hasRole') && $user->hasRole('operator');
         } catch (\Throwable $e) {
             $hasOperatorRole = false;
         }
 
-        $operatorId = \App\Models\Operator::where('user_id', $user->id)->value('id');
-
-        if ($hasOperatorRole || $operatorId) {
-            $query->whereHas('assignment', function ($qa) use ($operatorId) {
-                $qa->where('operator_id', $operatorId);
+        // If user is an operator, only show their incident reports
+        if ($hasOperatorRole) {
+            $query->whereHas('assignment', function ($qa) use ($user) {
+                $qa->where('user_id', $user->id);
             });
         }
 

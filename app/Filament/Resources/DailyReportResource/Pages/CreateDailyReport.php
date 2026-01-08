@@ -14,6 +14,7 @@ class CreateDailyReport extends CreateRecord
     //customize redirect after create
     public function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index');
+        // Redirect ke halaman edit setelah create agar bisa langsung isi fuel log & incident
+        return $this->getResource()::getUrl('edit', ['record' => $this->getRecord()]);
     }
 }

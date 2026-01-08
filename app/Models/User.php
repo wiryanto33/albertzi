@@ -28,6 +28,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar //MustVeri
      */
     protected $fillable = [
         'name',
+        'heavy_equipment_id',
         'email',
         'password',
         'avatar_url',
@@ -82,5 +83,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar //MustVeri
     public function canAccessPanel(Panel $panel): bool
     {
         return true;
+    }
+
+    // Add this relationship method
+    public function heavy_equipments()
+    {
+        return $this->belongsTo(HeavyEquipment::class, 'heavy_equipment_id');
     }
 }

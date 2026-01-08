@@ -21,30 +21,59 @@ class FuelLogResource extends Resource
     protected static ?string $modelLabel = 'Log BBM';
     protected static ?string $pluralModelLabel = 'Log BBM';
 
+    // Tambahkan ini untuk menyembunyikan dari sidebar
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Forms\Form $form): Forms\Form
     {
         return $form->schema([
-            // show operator name for the assignment select
+            // Show operator name for the assignment select
             Forms\Components\Select::make('assignment_id')
                 ->relationship('assignment', 'id')
-                ->getOptionLabelFromRecordUsing(fn($record) => ($record->operator->nama ?? '—') . ' - ' . ($record->heavyEquipment->nama ?? '—'))
+                ->getOptionLabelFromRecordUsing(fn($record) => ($record->user->name ?? '—') . ' - ' . ($record->heavyEquipment->nama ?? '—'))
                 ->searchable()
                 ->required()
                 ->preload(),
-            Forms\Components\DatePicker::make('tanggal')->required(),
-            Forms\Components\TextInput::make('liter')->numeric()->step('0.01')->required(),
-            Forms\Components\TextInput::make('odometer_jam_awal')->numeric(),
-            Forms\Components\TextInput::make('odometer_jam_akhir')->numeric(),
-            Forms\Components\FileUpload::make('bukti_foto')->image()->directory('bbm'),
+            Forms\Components\DatePicker::make('tanggal')
+                ->label('Tanggal')
+                ->required(),
+            Forms\Components\TextInput::make('liter')
+                ->label('Liter')
+                ->numeric()
+                ->step('0.01')
+                ->suffix('L')
+                ->required(),
+            Forms\Components\TextInput::make('odometer_jam_awal')
+                ->label('Odometer/Jam Awal')
+                ->numeric(),
+            Forms\Components\TextInput::make('odometer_jam_akhir')
+                ->label('Odometer/Jam Akhir')
+                ->numeric(),
+            Forms\Components\FileUpload::make('bukti_foto')
+                ->label('Bukti Foto')
+                ->image()
+                ->directory('bbm'),
         ]);
     }
 
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table->columns([
-            Tables\Columns\TextColumn::make('tanggal')->date()->sortable(),
-            Tables\Columns\TextColumn::make('assignment.workOrder.no_wo')->label('WO')->badge(),
-            Tables\Columns\TextColumn::make('liter')->suffix(' L')->numeric(2)->sortable(),
+            Tables\Columns\TextColumn::make('tanggal')
+                ->label('Tanggal')
+                ->date()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('assignment.workOrder.no_wo')
+                ->label('WO')
+                ->badge(),
+            Tables\Columns\TextColumn::make('assignment.user.name')
+                ->label('Operator')
+                ->searchable(),
+            Tables\Columns\TextColumn::make('liter')
+                ->label('Liter')
+                ->suffix(' L')
+                ->numeric(2)
+                ->sortable(),
         ])
             ->defaultSort('tanggal', 'desc')
             ->actions([
@@ -73,18 +102,18 @@ class FuelLogResource extends Resource
             return $query->whereRaw('1 = 0');
         }
 
+        // Check if the logged-in user has the 'operator' role
         $hasOperatorRole = false;
         try {
-            $hasOperatorRole = method_exists($user, 'hasRole') ? $user->hasRole('operator') : false;
+            $hasOperatorRole = method_exists($user, 'hasRole') && $user->hasRole('operator');
         } catch (\Throwable $e) {
             $hasOperatorRole = false;
         }
 
-        $operatorId = \App\Models\Operator::where('user_id', $user->id)->value('id');
-
-        if ($hasOperatorRole || $operatorId) {
-            $query->whereHas('assignment', function ($qa) use ($operatorId) {
-                $qa->where('operator_id', $operatorId);
+        // If user is an operator, only show their fuel logs
+        if ($hasOperatorRole) {
+            $query->whereHas('assignment', function ($qa) use ($user) {
+                $qa->where('user_id', $user->id);
             });
         }
 

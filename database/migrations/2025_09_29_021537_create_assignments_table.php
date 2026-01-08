@@ -15,13 +15,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('work_order_id')->constrained()->cascadeOnDelete();
             $table->foreignId('heavy_equipment_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('operator_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->date('tgl_mulai')->nullable();
             $table->date('tgl_selesai')->nullable();
             $table->enum('status', ['AKTIF', 'SELESAI', 'DIBATALKAN'])->default('AKTIF');
             $table->timestamps();
             $table->softDeletes();
-            $table->unique(['work_order_id', 'heavy_equipment_id', 'operator_id', 'tgl_mulai'], 'uniq_assign_per_day');
+            $table->unique(['work_order_id', 'heavy_equipment_id', 'user_id', 'tgl_mulai'], 'uniq_assign_per_day');
         });
     }
 

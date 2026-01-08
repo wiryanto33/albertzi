@@ -23,6 +23,8 @@ use Filament\Tables\Actions\ExportBulkAction;
 use App\Filament\Resources\UserResource\Pages;
 use STS\FilamentImpersonate\Tables\Actions\Impersonate;
 use Filament\Infolists\Components\Section as InfolistSection;
+use Filament\Tables\Columns\Layout\Stack;
+use Filament\Tables\Columns\TextColumn;
 
 class UserResource extends Resource
 {
@@ -37,13 +39,18 @@ class UserResource extends Resource
                 Section::make(
                     'User Information'
                 )->schema([
-                            TextInput::make('name')
-                                ->required(),
-                            TextInput::make('email')
-                                ->required(),
-                            TextInput::make('password')
-                                ->required(),
-                        ]),
+                    TextInput::make('name')
+                        ->required(),
+                    Select::make('heavy_equipment_id')
+                        ->label('Alat Berat')
+                        ->relationship('heavy_equipments', 'nama')
+                        ->preload()
+                        ->searchable(),
+                    TextInput::make('email')
+                        ->required(),
+                    TextInput::make('password')
+                        ->nullable(),
+                ]),
             ]);
     }
 
@@ -64,9 +71,15 @@ class UserResource extends Resource
                         ->getStateUsing(fn($record) => $record->avatar_url
                             ? $record->avatar_url
                             : "https://ui-avatars.com/api/?name=" . urlencode($record->name)),
-                    Tables\Columns\TextColumn::make('name')
-                        ->searchable()
-                        ->weight(FontWeight::Bold),
+                    Stack::make([
+                    TextColumn::make('heavy_equipments.nama')
+                        ->label('Alat Berat')
+                        ->searchable(),
+                        Tables\Columns\TextColumn::make('name')
+                            ->searchable()
+                            ->weight(FontWeight::Bold),
+                    ]),
+
                     Tables\Columns\Layout\Stack::make([
                         Tables\Columns\TextColumn::make('roles.name')
                             ->searchable()

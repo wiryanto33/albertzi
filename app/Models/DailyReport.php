@@ -13,7 +13,7 @@ use App\Notifications\FilamentDatabaseNotification;
 
 class DailyReport extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
 
     protected $fillable = [
         'work_order_id',
@@ -37,6 +37,18 @@ class DailyReport extends Model
         'lat' => 'float',
         'lng' => 'float',
     ];
+
+    public function fuelLogs()
+    {
+        return $this->hasMany(FuelLog::class, 'assignment_id', 'assignment_id')
+            ->whereDate('tanggal', $this->tanggal);
+    }
+
+    public function incidentReports()
+    {
+        return $this->hasMany(IncidentReport::class, 'assignment_id', 'assignment_id')
+            ->whereDate('tanggal', $this->tanggal);
+    }
 
     public function workOrder()
     {
@@ -92,7 +104,7 @@ class DailyReport extends Model
             try {
                 $recipients = collect();
                 try {
-                    foreach (['super_admin', 'admin', 'mekanik', 'mechanic', 'pimpinan'] as $roleName) {
+                    foreach (['super_admin', 'admin', 'pimpinan'] as $roleName) {
                         try {
                             $recipients = $recipients->merge(User::role($roleName)->get() ?? []);
                         } catch (\Throwable $eIgnore) {
@@ -107,7 +119,7 @@ class DailyReport extends Model
                 if ($recipients->isNotEmpty()) {
                     $data = \Filament\Notifications\Notification::make()
                         ->title('Laporan Harian Baru')
-                        ->body('WO ' . ($report->workOrder?->no_wo ?? '—') . ' · Operator ' . ($report->assignment?->operator?->nama ?? '—') . ' · Progres ' . ((int) $report->progress_persen) . '%')
+                        ->body('WO ' . ($report->workOrder?->no_wo ?? '—') . ' · Operator ' . ($report->assignment?->user?->name ?? '—') . ' · Progres ' . ((int) $report->progress_persen) . '%')
                         ->icon('heroicon-o-newspaper')
                         ->color('success')
                         ->actions([
@@ -215,23 +227,23 @@ class DailyReport extends Model
             }
         });
 
-        static::restored(function (self $report): void {
-            $equipment = $report->assignment?->heavyEquipment;
-            if (! $equipment) {
-                return;
-            }
+        // static::restored(function (self $report): void {
+        //     $equipment = $report->assignment?->heavyEquipment;
+        //     if (! $equipment) {
+        //         return;
+        //     }
 
-            $inc = (int) round((float) ($report->jam_jalan_alat ?? 0));
-            if ($inc !== 0) {
-                $equipment->increment('jam_jalan_total', $inc);
-                if (config('app.debug')) {
-                    Log::info('DailyReport restored: increment equipment hour meter', [
-                        'report_id' => $report->id,
-                        'equipment_id' => $equipment->id,
-                        'increment' => $inc,
-                    ]);
-                }
-            }
-        });
+        //     $inc = (int) round((float) ($report->jam_jalan_alat ?? 0));
+        //     if ($inc !== 0) {
+        //         $equipment->increment('jam_jalan_total', $inc);
+        //         if (config('app.debug')) {
+        //             Log::info('DailyReport restored: increment equipment hour meter', [
+        //                 'report_id' => $report->id,
+        //                 'equipment_id' => $equipment->id,
+        //                 'increment' => $inc,
+        //             ]);
+        //         }
+        //     }
+        // });
     }
 }

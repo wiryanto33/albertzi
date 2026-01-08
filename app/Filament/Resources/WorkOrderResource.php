@@ -8,8 +8,10 @@ use App\Filament\Resources\WorkOrderResource\RelationManagers\AssignmentsRelatio
 use App\Filament\Resources\WorkOrderResource\RelationManagers\DailyReportRelationManager;
 use App\Filament\Resources\WorkOrderResource\RelationManagers\IncidentReportRelationManager;
 use App\Models\WorkOrder;
+use App\Models\Project;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -21,31 +23,60 @@ class WorkOrderResource extends Resource
     protected static ?string $model = WorkOrder::class;
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationGroup = 'Master Data';
-    protected static ?string $modelLabel = 'Perintah Kerja';
-    protected static ?string $pluralModelLabel = 'Perintah Kerja';
+    protected static ?string $modelLabel = 'Form Surat Perintah Kerja';
+    protected static ?string $pluralModelLabel = 'Form SP Kerja';
 
     public static function form(Forms\Form $form): Forms\Form
     {
         return $form->schema([
             Forms\Components\Section::make('WO')->schema([
                 Forms\Components\Select::make('project_id')
-                    ->relationship('project', 'nama')->preload()->searchable()->required(),
+                    ->relationship('project', 'nama')
+                    ->preload()
+                    ->searchable()
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function (Set $set, $state) {
+                        // Auto-fill tanggal dari project yang dipilih
+                        if ($state) {
+                            $project = Project::find($state);
+                            if ($project) {
+                                $set('tgl_mulai_rencana', $project->tanggal_mulai);
+                                $set('tgl_selesai_rencana', $project->tanggal_selesai);
+                            }
+                        } else {
+                            // Reset tanggal jika project dibatalkan
+                            $set('tgl_mulai_rencana', null);
+                            $set('tgl_selesai_rencana', null);
+                        }
+                    }),
                 Forms\Components\TextInput::make('no_wo')
                     ->label('No. WO')
                     ->disabled()
                     ->dehydrated(false)
                     ->placeholder('Otomatis saat dibuat'),
-                Forms\Components\Textarea::make('deskripsi')->rows(3),
+                Forms\Components\Textarea::make('deskripsi')
+                    ->rows(3)
+                    ->columnSpanFull(),
             ])->columns(2),
+
             Forms\Components\Section::make('Jadwal & Status')->schema([
-                Forms\Components\DatePicker::make('tgl_mulai_rencana'),
-                Forms\Components\DatePicker::make('tgl_selesai_rencana'),
-                Forms\Components\Select::make('status')->options([
-                    'DRAF' => 'DRAF',
-                    'AKTIF' => 'AKTIF',
-                    'SELESAI' => 'SELESAI',
-                    'DIBATALKAN' => 'DIBATALKAN'
-                ])->required(),
+                Forms\Components\DatePicker::make('tgl_mulai_rencana')
+                    ->label('Tanggal Mulai Rencana')
+                    ->native(false),
+                Forms\Components\DatePicker::make('tgl_selesai_rencana')
+                    ->label('Tanggal Selesai Rencana')
+                    ->native(false),
+                Forms\Components\Select::make('status')
+                    ->options([
+                        'DRAF' => 'DRAF',
+                        'AKTIF' => 'AKTIF',
+                        'SELESAI' => 'SELESAI',
+                        'DIBATALKAN' => 'DIBATALKAN'
+                    ])
+                    ->default('DRAF')
+                    ->required()
+                    ->native(false),
             ])->columns(3),
         ]);
     }
@@ -53,34 +84,57 @@ class WorkOrderResource extends Resource
     public static function table(Tables\Table $table): Tables\Table
     {
         return $table->columns([
-            Tables\Columns\TextColumn::make('no_wo')->label('No SP') ->badge()->weight('bold')->searchable(),
-            Tables\Columns\TextColumn::make('project.nama')->label('Proyek')->sortable()->searchable(),
-            Tables\Columns\TextColumn::make('status')->badge()->colors([
-                'gray' => 'DRAF',
-                'success' => 'AKTIF',
-                'primary' => 'SELESAI',
-                'danger' => 'DIBATALKAN'
-            ])->sortable(),
-            Tables\Columns\TextColumn::make('assignments_count')->counts('assignments')->label('Penugasan')->sortable(),
-            Tables\Columns\TextColumn::make('daily_reports_count')->counts('dailyReports')->label('Laporan')->sortable(),
+            Tables\Columns\TextColumn::make('no_wo')
+                ->label('No SP')
+                ->badge()
+                ->weight('bold')
+                ->searchable()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('project.nama')
+                ->label('Proyek')
+                ->sortable()
+                ->searchable(),
+            Tables\Columns\TextColumn::make('status')
+                ->badge()
+                ->colors([
+                    'gray' => 'DRAF',
+                    'success' => 'AKTIF',
+                    'primary' => 'SELESAI',
+                    'danger' => 'DIBATALKAN'
+                ])
+                ->sortable(),
+            Tables\Columns\TextColumn::make('tgl_mulai_rencana')
+                ->label('Mulai')
+                ->date()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('tgl_selesai_rencana')
+                ->label('Selesai')
+                ->date()
+                ->sortable(),
+            Tables\Columns\TextColumn::make('assignments_count')
+                ->counts('assignments')
+                ->label('Penugasan')
+                ->sortable(),
+            Tables\Columns\TextColumn::make('daily_reports_count')
+                ->counts('dailyReports')
+                ->label('Laporan')
+                ->sortable(),
         ])
-            ->filters([])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'DRAF' => 'DRAF',
+                        'AKTIF' => 'AKTIF',
+                        'SELESAI' => 'SELESAI',
+                        'DIBATALKAN' => 'DIBATALKAN'
+                    ]),
+            ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make()->requiresConfirmation(),
             ])
             ->bulkActions([Tables\Actions\DeleteBulkAction::make()]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            AssignmentsRelationManager::class,
-            DailyReportRelationManager::class,
-            IncidentReportRelationManager::class,
-            // DocumentsRelationManager::class,
-        ];
     }
 
     public static function getPages(): array

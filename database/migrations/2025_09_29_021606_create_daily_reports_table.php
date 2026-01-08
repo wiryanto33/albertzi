@@ -26,7 +26,7 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
             $table->softDeletes();
-            $table->unique(['assignment_id', 'tanggal']);
+            $table->unique(['assignment_id']);
         });
     }
 

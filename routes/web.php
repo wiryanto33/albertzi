@@ -38,7 +38,8 @@ Route::middleware(['web', 'auth'])
 
 Route::middleware(['web', 'auth'])
     ->get('/assignments/{assignment}/surat-tugas', function (Assignment $assignment) {
-        $assignment->loadMissing(['workOrder.project.client', 'heavyEquipment', 'operator']);
+        // Load relationships - changed 'operator' to 'user'
+        $assignment->loadMissing(['workOrder.project.client', 'heavyEquipment', 'user']);
 
         $pdf = Pdf::loadView('pdf.surat-tugas', [
             'assignment' => [
@@ -50,7 +51,7 @@ Route::middleware(['web', 'auth'])
             'project' => optional($assignment->workOrder)->project,
             'client' => optional(optional($assignment->workOrder)->project)->client,
             'heavyEquipment' => $assignment->heavyEquipment,
-            'operator' => $assignment->operator,
+            'operator' => $assignment->user, // Changed from 'operator' to 'user'
         ])->setPaper('a4', 'portrait');
 
         $raw = (string) ($assignment->workOrder->no_wo ?? 'surat');

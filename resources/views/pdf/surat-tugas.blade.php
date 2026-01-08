@@ -52,7 +52,7 @@
         <table class="table-bordered">
             <tr>
                 <td style="width: 160px;">Nama Operator</td>
-                <td>{{ $operator->nama ?? '—' }}</td>
+                <td>{{ $operator->name ?? '—' }}</td>
             </tr>
             <tr>
                 <td>Peralatan</td>

@@ -15,18 +15,23 @@ class Assignment extends Model
     protected $fillable = [
         'work_order_id',
         'heavy_equipment_id',
-        'operator_id',
+        'user_id',
         'shift',
         'tgl_mulai',
         'tgl_selesai',
         'status'
     ];
 
+    protected $guarded = ['id'];
+
+    protected $hidden = ['created_at', 'updated_at'];
+
     protected $casts = [
         'tgl_mulai' => 'date',
         'tgl_selesai' => 'date',
     ];
 
+    // Relationships
     public function workOrder()
     {
         return $this->belongsTo(WorkOrder::class);
@@ -37,9 +42,9 @@ class Assignment extends Model
         return $this->belongsTo(HeavyEquipment::class);
     }
 
-    public function operator()
+    public function user()
     {
-        return $this->belongsTo(Operator::class);
+        return $this->belongsTo(User::class);
     }
 
     public function dailyReports()
@@ -52,16 +57,12 @@ class Assignment extends Model
         return $this->hasMany(FuelLog::class);
     }
 
-    // add guaded
-    protected $guarded = ['id'];
-    // add hidden
-    protected $hidden = ['created_at', 'updated_at'];
-
+    // Model Events
     protected static function booted(): void
     {
         static::created(function (self $assignment): void {
             try {
-                $user = $assignment->operator?->user;
+                $user = $assignment->user;
                 if ($user) {
                     $data = \Filament\Notifications\Notification::make()
                         ->title('Penugasan Baru')
@@ -79,13 +80,14 @@ class Assignment extends Model
                 }
             } catch (\Throwable $e) {
                 // fail silently to avoid breaking creation
+                \Log::error('Failed to send assignment creation notification: ' . $e->getMessage());
             }
         });
 
         static::updated(function (self $assignment): void {
             try {
-                if ($assignment->wasChanged('operator_id')) {
-                    $user = $assignment->operator?->user;
+                if ($assignment->wasChanged('user_id')) {
+                    $user = $assignment->user;
                     if ($user) {
                         $data = \Filament\Notifications\Notification::make()
                             ->title('Penugasan Diperbarui')
@@ -103,7 +105,8 @@ class Assignment extends Model
                     }
                 }
             } catch (\Throwable $e) {
-                // ignore
+                // fail silently
+                \Log::error('Failed to send assignment update notification: ' . $e->getMessage());
             }
         });
     }
