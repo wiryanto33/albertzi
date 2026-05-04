@@ -104,7 +104,7 @@ class DailyReport extends Model
             try {
                 $recipients = collect();
                 try {
-                    foreach (['super_admin', 'admin', 'pimpinan'] as $roleName) {
+                    foreach (['super_admin', 'admin', 'pimpinan', 'komandan'] as $roleName) {
                         try {
                             $recipients = $recipients->merge(User::role($roleName)->get() ?? []);
                         } catch (\Throwable $eIgnore) {
