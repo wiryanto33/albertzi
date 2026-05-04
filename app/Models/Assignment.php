@@ -39,7 +39,7 @@ class Assignment extends Model
 
     public function heavyEquipment()
     {
-        return $this->belongsTo(HeavyEquipment::class);
+        return $this->belongsTo(HeavyEquipment::class)->withTrashed();
     }
 
     public function user()

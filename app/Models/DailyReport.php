@@ -89,7 +89,7 @@ class DailyReport extends Model
             }
 
             $increment = (int) round((float) ($report->jam_jalan_alat ?? 0));
-            if ($increment !== 0) {
+            if ($equipment && $increment !== 0) {
                 $equipment->increment('jam_jalan_total', $increment);
                 if (config('app.debug')) {
                     Log::info('DailyReport created: increment equipment hour meter', [

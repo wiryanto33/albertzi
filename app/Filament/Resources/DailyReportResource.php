@@ -195,6 +195,7 @@ class DailyReportResource extends Resource
                     ->schema([
                         Forms\Components\FileUpload::make('path')
                             ->image()
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                             ->directory('daily-reports')
                             ->required(),
                         Forms\Components\TextInput::make('caption')->label('Keterangan'),
