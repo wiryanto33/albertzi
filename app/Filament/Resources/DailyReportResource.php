@@ -89,6 +89,12 @@ class DailyReportResource extends Resource
                             titleAttribute: 'id',
                             modifyQueryUsing: fn(Builder $query, Get $get) => $query->where('work_order_id', $get('work_order_id')),
                         )
+                        ->unique('daily_reports', 'assignment_id', modifyRuleUsing: function (\Illuminate\Validation\Rules\Unique $rule, Get $get) {
+                            return $rule->where('tanggal', $get('tanggal'));
+                        }, ignoreRecord: true)
+                        ->validationMessages([
+                            'unique' => 'Laporan harian untuk penugasan ini pada tanggal tersebut sudah ada.',
+                        ])
                         ->getOptionLabelFromRecordUsing(fn($record) => ($record->user->name ?? '—') . ' - ' . ($record->heavyEquipment->nama ?? '—'))
                         ->searchable()
                         ->preload()
