@@ -60,7 +60,7 @@ class ProjectProgressStats extends BaseWidget
             Stat::make('Progres (Proyek)', $progresPersen . '%')
                 ->icon('heroicon-o-chart-bar')
                 ->color('info')
-                ->description('WO selesai: ' . $woProgress . '%')
+                // ->description('WO selesai: ' . $woProgress . '%')
                 ->chart([
                     '0%' => 0,
                     'Proyek' => $progresPersen,
