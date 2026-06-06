@@ -22,8 +22,8 @@ class DailyReportResource extends Resource
     protected static ?string $model = DailyReport::class;
     protected static ?string $navigationIcon = 'heroicon-o-newspaper';
     protected static ?string $navigationGroup = 'Operasi Lapangan';
-    protected static ?string $modelLabel = 'Laporan Harian';
-    protected static ?string $pluralModelLabel = 'Laporan Harian';
+    protected static ?string $modelLabel = 'Laporan Harian Operator';
+    protected static ?string $pluralModelLabel = 'Laporan Harian Operator';
 
 
 

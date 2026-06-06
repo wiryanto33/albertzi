@@ -19,8 +19,8 @@ class AssignmentResource extends Resource
     protected static ?string $model = Assignment::class;
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $navigationGroup = 'Operasi Lapangan';
-    protected static ?string $modelLabel = 'Penugasan';
-    protected static ?string $pluralModelLabel = 'Penugasan';
+    protected static ?string $modelLabel = 'Penugasan Operator';
+    protected static ?string $pluralModelLabel = 'Penugasan Operator';
 
     public static function form(Forms\Form $form): Forms\Form
     {

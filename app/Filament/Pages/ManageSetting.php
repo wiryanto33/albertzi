@@ -59,6 +59,9 @@ class ManageSetting extends SettingsPage
                         ->maxValue(100)
                         ->step(5)
                         ->default(90),
+                    TextInput::make('auth_title')
+                        ->label('Judul Aplikasi di Login')
+                        ->placeholder('Masukkan judul aplikasi yang akan ditampilkan di bawah logo'),
                 ]),
             ]);
     }
